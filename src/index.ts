@@ -27,8 +27,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // CORS configuration
 const allowedOrigins = [
   'https://inventory-management-iota-opal.vercel.app',
-  'http://localhost:3000', // For local development
-  'http://localhost:3001'  // For local development
+  'http://localhost:3000',
+  'http://localhost:3001' 
 ];
 
 // Add environment variable support for additional origins
@@ -36,15 +36,24 @@ if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
 
+console.log('Allowed CORS origins:', allowedOrigins);
+
 app.use(cors({
   origin: function (origin, callback) {
+    console.log('CORS request from origin:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('Allowing request with no origin');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
+      console.log('Allowed origins:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -53,9 +62,35 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
+// Additional CORS headers for all responses
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log('Request origin:', origin);
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  next();
+});
+
 // Handle preflight requests
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const origin = req.headers.origin;
+  console.log('OPTIONS request from origin:', origin);
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -74,6 +109,15 @@ app.get("/health", (req, res) => {
   res.status(200).json({ 
     status: "OK", 
     message: "Server is running",
+    timestamp: new Date().toISOString()
+  });
+});
+
+/* CORS TEST ROUTE */
+app.get("/cors-test", (req, res) => {
+  res.status(200).json({ 
+    message: "CORS is working!",
+    origin: req.headers.origin,
     timestamp: new Date().toISOString()
   });
 });
